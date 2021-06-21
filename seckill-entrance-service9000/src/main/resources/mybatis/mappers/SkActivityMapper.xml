@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sauvignon.seckill.mapper.SkActivityMapper">
+
+    <resultMap id="seckillActivityMap" type="com.sauvignon.seckill.pojo.entities.SeckillActivity">
+        <id column="activ_id" property="activityId" jdbcType="VARCHAR" />
+        <result column="commod_id" property="commodityId" jdbcType="BIGINT" />
+        <result column="open_time" property="openTime" jdbcType="DATE" />
+        <result column="activ_status" property="activityStatus" jdbcType="INTEGER" />
+        <result column="dead_time" property="deadTime" jdbcType="DATE" />
+    </resultMap>
+
+    <sql id="allColumns">
+        activ_id, commod_id, open_time, activ_status, dead_time
+    </sql>
+
+    <select id="findOne" resultMap="seckillActivityMap">
+        SELECT
+            <include refid="allColumns" />
+        FROM
+            sk_activity
+        WHERE
+            activ_id=#{activityId}
+    </select>
+
+    <update id="updateStatus" >
+        UPDATE
+            sk_activity
+        SET
+            activ_status = #{activityStatus}
+        WHERE
+            activ_id=#{activityId}
+    </update>
+
+    <insert id="addOne" parameterType="com.sauvignon.seckill.pojo.entities.SeckillActivity">
+        INSERT INTO
+            sk_activity
+            ( <include refid="allColumns" /> )
+        VALUES
+            ( #{activityId},#{commodityId},#{openTime},#{activityStatus},#{deadTime} )
+    </insert>
+
+</mapper>

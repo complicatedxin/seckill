@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sauvignon.seckill.mapper.CommodityMapper">
+
+    <resultMap id="commodityMap" type="com.sauvignon.seckill.pojo.entities.Commodity">
+        <id column="commod_id" property="commodityId" jdbcType="BIGINT" />
+        <result column="price" property="price" jdbcType="DECIMAL" />
+        <result column="total" property="total" jdbcType="INTEGER" />
+        <result column="consumed" property="consumed" jdbcType="INTEGER" />
+        <result column="deal" property="deal" jdbcType="INTEGER" />
+    </resultMap>
+
+    <sql id="allColumns">
+        commod_id, price, total, consumed, deal
+    </sql>
+
+    <select id="findOne" resultMap="commodityMap">
+        SELECT <include refid="allColumns" />
+        FROM sk_commodity
+        WHERE commod_id=#{commodityId}
+    </select>
+
+    <update id="updateConsumed" >
+        UPDATE sk_commodity
+        SET consumed = consumed+#{num}
+        WHERE commod_id=#{commodityId}
+    </update>
+
+    <update id="updateDeal" >
+        UPDATE sk_commodity
+        SET deal = deal+#{num}
+        WHERE commod_id=#{commodityId}
+    </update>
+
+
+
+</mapper>
