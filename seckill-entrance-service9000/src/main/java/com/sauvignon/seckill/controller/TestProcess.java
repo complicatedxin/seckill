@@ -1,8 +1,12 @@
 package com.sauvignon.seckill.controller;
 
 import cn.hutool.json.JSONObject;
+import com.sauvignon.seckill.constants.Constants;
 import com.sauvignon.seckill.pojo.dto.ResponseResult;
+import com.sauvignon.seckill.pojo.entities.Commodity;
+import com.sauvignon.seckill.utils.CacheProvider;
 import com.sauvignon.seckill.utils.JwtUtil;
+import com.sauvignon.seckill.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import java.math.BigDecimal;
 import java.sql.Time;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -22,6 +27,10 @@ public class TestProcess
 {
     @Autowired
     private RestTemplate restTemplate;
+    @Autowired
+    private CacheProvider cacheProvider;
+    @Autowired
+    private RedisUtil redisUtil;
 
     private String entranceUrl="http://localhost:9000/seckill/getEntrance/test/";
     private String paymentCallbackUrl ="http://localhost:9003/seckill/payment/ali/callback?orderId={orderId}";
@@ -53,6 +62,8 @@ public class TestProcess
 //        ResponseResult responseResult = responseEntity.getBody();
 
         String orderUrl = (String) responseResult.getBody();
+        if(orderUrl==null)
+            return new ResponseResult(404,"活动结束",null);
         orderUrl+="?activityId=test";
 
         TimeUnit.MILLISECONDS.sleep(500);
@@ -64,7 +75,7 @@ public class TestProcess
         if(paymentUrl==null)
             return new ResponseResult(404,"id repeat",null);
 
-        TimeUnit.MILLISECONDS.sleep(2500);
+        TimeUnit.MILLISECONDS.sleep(6000);
 
         //3. 支付
         responseResult=restTemplate.getForObject(paymentUrl,ResponseResult.class);
@@ -114,7 +125,24 @@ public class TestProcess
 
             TimeUnit.MILLISECONDS.sleep(500);
         }
+    }
 
+    @RequestMapping("/spy")
+    public Commodity spyOn()
+    {
+        return cacheProvider.getCommodity(1L);
+    }
+
+    @RequestMapping("/stuff")
+    public void stuffData()
+    {
+        int totalNum=1000;
+        //todo：模拟数据库数据
+        Commodity commodity=new Commodity(1L,new BigDecimal(0.99),totalNum,0,0);
+        redisUtil.set(Constants.seckillCommodity(1L),commodity);
+        for(int i=0;i<totalNum;i++)
+            System.out.println(redisUtil.lPush(Constants.consumedRedisKey(1L), i + 1));
+        System.out.println("=====初始化完成=====");
     }
 
 }

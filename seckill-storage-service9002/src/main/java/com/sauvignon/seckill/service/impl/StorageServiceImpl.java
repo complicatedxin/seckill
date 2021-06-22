@@ -6,6 +6,7 @@ import com.sauvignon.seckill.mapper.CommodityMapper;
 import com.sauvignon.seckill.pojo.dto.ServiceResult;
 import com.sauvignon.seckill.pojo.entities.Commodity;
 import com.sauvignon.seckill.service.StorageService;
+import com.sauvignon.seckill.utils.RedisUtil;
 import com.sauvignon.seckill.utils.ZkClient;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.locks.InterProcessMutex;
@@ -16,6 +17,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class StorageServiceImpl implements StorageService
 {
+    @Autowired
+    private RedisUtil redisUtil;
     @Autowired
     private CommodityMapper commodityMapper;
 
@@ -101,6 +104,20 @@ public class StorageServiceImpl implements StorageService
 
     @Override
     public ServiceResult<Integer> deal(Long commodityId, Integer count)
+    {
+        //redis mysql 双写一致：延时缓存双删
+        redisUtil.del(Constants.seckillCommodity(commodityId));
+        ServiceResult<Integer> serviceResult = increaseDeal(commodityId, count);
+        //第二次删除睡眠时间：400ms，参见CacheProvider流程，其耗时292ms
+        try {
+            TimeUnit.MILLISECONDS.sleep(400);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        redisUtil.del(Constants.seckillCommodity(commodityId));
+        return serviceResult;
+    }
+    public ServiceResult<Integer> increaseDeal(Long commodityId, Integer count)
     {
         //1. 申请分布式锁
         CuratorFramework client = ZkClient.getClient();

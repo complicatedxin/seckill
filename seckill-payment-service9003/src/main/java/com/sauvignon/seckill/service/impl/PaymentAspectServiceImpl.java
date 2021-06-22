@@ -1,9 +1,9 @@
 package com.sauvignon.seckill.service.impl;
 
 import com.sauvignon.seckill.constants.Constants;
-import com.sauvignon.seckill.constants.OrderStatus;
 import com.sauvignon.seckill.constants.ResponseCode;
 import com.sauvignon.seckill.constants.ServiceCode;
+import com.sauvignon.seckill.mq.MessageProvider;
 import com.sauvignon.seckill.pojo.dto.ResponseResult;
 import com.sauvignon.seckill.pojo.dto.ServiceResult;
 import com.sauvignon.seckill.pojo.entities.Order;
@@ -11,12 +11,9 @@ import com.sauvignon.seckill.service.OrderService;
 import com.sauvignon.seckill.service.PaymentAspectService;
 import com.sauvignon.seckill.service.StorageService;
 import com.sauvignon.seckill.utils.RedisUtil;
-import com.sauvignon.seckill.utils.ZkClient;
-import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.recipes.locks.InterProcessMutex;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import java.util.concurrent.TimeUnit;
 
 @Service
 public class PaymentAspectServiceImpl implements PaymentAspectService
@@ -27,6 +24,13 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
     private StorageService storageService;
     @Autowired
     private RedisUtil redisUtil;
+    @Autowired
+    private MessageProvider messageProvider;
+
+    @Value("${payment-aspect.mq.topic}")
+    private String msgTopic;
+    @Value("${payment-aspect.mq.tag.dealTag}")
+    private String dealTag;
 
     @Override
     public ServiceResult<Integer> paymentPreCheck(Long orderId, String orderFlag)
@@ -43,10 +47,11 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
         Order order=checkResult.getBody();
         if(!checkResult.getCode().equals(ResponseCode.SUCCESS))
             return new ServiceResult<>(ServiceCode.FAIL,"退款",orderId);
-        //2. 再调仓储服务修改数量
-        ResponseResult dealResult = storageService.deal(order.getCommodityId(), order.getCount());
-        if(!dealResult.getCode().equals(ResponseCode.SUCCESS))
-            throw new RuntimeException("storage执行deal失败");
+        //2. 发送消息通知仓储服务扣减数据库数据
+        messageProvider.asyncSendOrderly(msgTopic,dealTag,
+                order,
+                Constants.ORDER_MESSAGE_HASHKEY);
+
         return new ServiceResult<>(ServiceCode.SUCCESS,"success",orderId);
     }
 

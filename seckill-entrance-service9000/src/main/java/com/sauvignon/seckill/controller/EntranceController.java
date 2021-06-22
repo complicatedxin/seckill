@@ -6,8 +6,10 @@ import com.auth0.jwt.exceptions.SignatureVerificationException;
 import com.auth0.jwt.exceptions.TokenExpiredException;
 import com.sauvignon.seckill.constants.SkActivityStatus;
 import com.sauvignon.seckill.pojo.dto.ResponseResult;
+import com.sauvignon.seckill.pojo.entities.Commodity;
 import com.sauvignon.seckill.pojo.entities.SeckillActivity;
 import com.sauvignon.seckill.service.SkActivityService;
+import com.sauvignon.seckill.utils.CacheProvider;
 import com.sauvignon.seckill.utils.JwtUtil;
 import com.sauvignon.seckill.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,8 @@ public class EntranceController
     private RedisUtil redisUtil;
     @Autowired
     private SkActivityService skActivityService;
+    @Autowired
+    private CacheProvider cacheProvider;
 
     //todo
     @RequestMapping("/seckill/getEntrance/{skActivityId}/{userId}")
@@ -45,7 +49,7 @@ public class EntranceController
 //                | InvalidClaimException e) {
 //            e.printStackTrace();
 //        }
-        //验证活动是否开始
+        //1. 验证活动是否开始
         SeckillActivity activity = skActivityService.getActivity(skActivityId);
         if(activity==null)
             return new ResponseResult<String>(404,"未找到该页面",null);
@@ -60,6 +64,10 @@ public class EntranceController
                 activity.setActivityStatus(SkActivityStatus.OPENING);
         }
         //====活动已开启：业务流程=====
+        //2. 检验剩余库存，没了就关闭下单入口
+        Commodity commodity = cacheProvider.getCommodity(activity.getCommodityId());
+        if(commodity.getDeal()>=commodity.getTotal())
+            return new ResponseResult<>(200,"库存为0",null);
         //返回一个带有其用户id编码后的流水号的下单地址: url=xxx/xx/userId
         String orderUrl = skActivityService.getOrderUrl(userId);
         return new ResponseResult<>(200,"下单入口开启",orderUrl);

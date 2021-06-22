@@ -53,12 +53,15 @@ public class OrderServiceImpl implements OrderService
                 || order.getUserId()==null
                 || orderCount !=1)
             throw new IllegalArgumentException("订单参数错误");
-        //2. 合算价钱
+        //2. 从redis获取consumed
+        Integer result = (Integer) redisUtil.lPop(Constants.consumedRedisKey(commodityId));
+        if(result==null) return;
+        //3. 合算价钱
         Commodity commodity = storageService.findOne(commodityId).getBody();
         BigDecimal amount = commodity.getPrice().multiply(new BigDecimal(orderCount));
         if(amount.compareTo(new BigDecimal(0))==-1)//价钱不能比0小
             throw new IllegalArgumentException("总价不能为负：单价或商品数量有误");
-        //3. 生成预订单
+        //4. 生成预订单
         order.setAmount(amount);
         order.setOrderStatus(OrderStatus.PRE_CREATE);
         //-- 申请分布式锁
@@ -71,17 +74,20 @@ public class OrderServiceImpl implements OrderService
             if(acquire)
             {
                 this.addOne(order);
-                //4. 调用减库存服务修改consumed字段
-                ResponseResult response=storageService.increaseConsumed(commodityId, orderCount);
-                if(!response.getCode().equals(ResponseCode.SUCCESS))
-                    throw new RuntimeException("storageService执行increaseConsumed失败");
+                //4. 调用减库存服务修改consumed字段（废除：减少分布式锁争用）
+//                ResponseResult response=storageService.increaseConsumed(commodityId, orderCount);
+//                if(!response.getCode().equals(ResponseCode.SUCCESS))
+//                    throw new RuntimeException("storageService执行increaseConsumed失败");
                 //5. 生成订单
                 this.updateStatus(orderId,OrderStatus.CREATED);
             }
             else
-                throw new RuntimeException("订单创建失败：未获取到锁！");
+                throw new RuntimeException("订单创建失败：未获取到锁！consumedNum:"+result);
         } catch (Exception e) {
-            e.printStackTrace();
+            //下单失败：回退consumed
+            String message = e.getMessage();
+            Integer consumedNum=Integer.parseInt(message.substring(message.lastIndexOf(":")+1));
+            redisUtil.lPush(Constants.consumedRedisKey(commodityId),consumedNum);
         } finally {
             try {
                 lock.release();
@@ -108,6 +114,7 @@ public class OrderServiceImpl implements OrderService
     @GlobalTransactional(name = "abandon-order",rollbackFor = Exception.class)
     public ServiceResult abandonOvertimeOrder(String orderFlagKey)
     {
+        //修改order状态并回退consumed
         Long orderId = (Long) redisUtil.get(orderFlagKey);
         Order order=null;
         //1. 获取分布式锁
@@ -145,13 +152,19 @@ public class OrderServiceImpl implements OrderService
                 e.printStackTrace();
             }
         }
-        //3. 回退库存：调用库存服务
-        ResponseResult response=
-                storageService.decreaseConsumed(order.getCommodityId(),-order.getCount());
-        if(!response.getCode().equals(ResponseCode.SUCCESS))
-            throw new RuntimeException("storageService执行decreaseConsumed异常");
-        else
-            return new ServiceResult(ServiceCode.SUCCESS,"回退库存成功");
+        //3. 回退库存：调用库存服务（弃用：减少分布式锁）
+//        ResponseResult response=
+//                storageService.decreaseConsumed(order.getCommodityId(),-order.getCount());
+//        if(!response.getCode().equals(ResponseCode.SUCCESS))
+//            throw new RuntimeException("storageService执行decreaseConsumed异常");
+//        else
+//            return new ServiceResult(ServiceCode.SUCCESS,"回退库存成功");
+        //3. 释放consumed
+        Long commodityId = Constants.commodityIdInOrderFlagKey(orderFlagKey);
+        Long consumedIndex = redisUtil.lPush(Constants.consumedRedisKey(commodityId), 0);
+        if(consumedIndex==null)
+            throw new RuntimeException("redis执行lPush->consumed异常");
+        return new ServiceResult(ServiceCode.SUCCESS,"回退库存成功");
     }
 
     @Override

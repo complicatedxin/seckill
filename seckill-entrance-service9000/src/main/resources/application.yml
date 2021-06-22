@@ -1,0 +1,61 @@
+server:
+  port: 9000
+  tomcat:
+    max-threads: 400 # 默认200
+    accept-count: 500 # 默认值 100
+
+spring:
+  application:
+    name: order-entrance-service
+  cloud:
+    nacos:
+      discovery:
+        server-addr: 127.0.0.1:8848
+    sentinel:
+      transport:
+        dashboard: 127.0.0.1:9950 #dashboard端口
+        port: 8719  #默认8719端口，加入被占用+1递增寻找可用端口
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/seckillproject?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&allowMultiQueries=true
+    username: root
+    password: {就不告诉你}
+  redis:
+    port: 6379
+    host: 39.102.87.156
+    password: {就不告诉你}
+
+rocketmq:
+  name-server: 39.102.87.156:9876
+  producer:
+    group: seckillEntranceGroup
+    send-message-timeout: 5000
+
+mybatis:
+  type-aliases-package: com.sauvignon.seckill.pojo.entities
+  mapper-locations: classpath:mybatis/mappers/*.xml
+
+#激活OpenFeign对Sentinel的支持
+feign:
+  sentinel:
+    enabled: true
+ribbon:
+  ReadTimeout: 10000
+  ConnectTimeout: 4000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+
+#自定义属性
+order-submit-host:
+  service:
+    storageService: "commodity-storage-service"
+  mq:
+    topic: "seckill_order_host_topic"
+    tag:
+      consumeTag: "consumeTag"
+      overTimeTag: "overTimeTag"

@@ -10,6 +10,9 @@ public class Constants
     private static final String STORAGE_MANAGE_LOCK_PATH_ ="/storage_manage_lock:";
     private static final String ORDER_STATUS_LOCK_PATH_ ="/order_status_lock:";
     private static final String PAYMENT_HOST_PATH_$userId$commodityId = "http://localhost:9003/seckill/paymentHost/";
+    private static final String SECKILL_ACTIVITY_COMMODITY_="seckill_activity_commodity:";
+    private static final String SECKILL_COMMODITY_CONSUMED_REDIS_KEY_="seckill_commodity_consumed:";
+
 
     public static final Integer SECKILL_ORDER_TIME_RESTRICTION=60*30;
     public static final Integer SECKILL_ORDER_OVERTIME=SECKILL_ORDER_TIME_RESTRICTION-90;
@@ -40,6 +43,11 @@ public class Constants
     {
         return String.format(SECKILL_ORDER_FLAG__, userId.toString(), commodityId.toString());
     }
+    public static Long commodityIdInOrderFlagKey(String orderFlagKey)
+    {
+        int index = orderFlagKey.lastIndexOf(":");
+        return Long.parseLong(orderFlagKey.substring(index+1));
+    }
     public static String orderStatusLockPath(Long orderId)
     {
         return ORDER_STATUS_LOCK_PATH_+orderId;
@@ -51,5 +59,13 @@ public class Constants
     public static String paymentHostPath(Long orderId,Long userId,Long commodityId)
     {
         return PAYMENT_HOST_PATH_$userId$commodityId+orderId+"?userId="+userId+"&commodityId="+commodityId;
+    }
+    public static String seckillCommodity(Long commodityId)
+    {
+        return String.format(SECKILL_ACTIVITY_COMMODITY_+commodityId);
+    }
+    public static String consumedRedisKey(Long commodityId)
+    {
+        return SECKILL_COMMODITY_CONSUMED_REDIS_KEY_+commodityId;
     }
 }

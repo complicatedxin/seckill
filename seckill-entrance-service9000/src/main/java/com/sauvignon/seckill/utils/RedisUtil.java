@@ -604,4 +604,38 @@ public final class RedisUtil
             return 0;
         }
     }
+
+
+    /**
+     *
+     * @param key
+     * @param value
+     * @return  index of elem in list
+     *          null: lPush异常
+     */
+    public Long lPush(String key,Object value)
+    {
+        try {
+            return redisTemplate.opsForList().leftPush(key, value);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     *
+     * @param key
+     * @return  value
+     *          null: get fail (key not exist or throw exception)
+     */
+    public Object lPop(String key)
+    {
+        try {
+            return redisTemplate.opsForList().leftPop(key);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
 }
