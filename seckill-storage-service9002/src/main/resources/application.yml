@@ -20,11 +20,42 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/seckillproject?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&allowMultiQueries=true
     username: root
-    password: {就不告诉你}
+    password: {}
+    druid:
+      min-idle: 20
+      max-active: 50
+      max-wait: 5000
+      # 配置监控统计拦截的filters，去掉后监控界面sql无法统计，
+      filters: stat,wall,log4j
+      #最大PSCache连接
+      maxPoolPreparedStatementPerConnectionSize: 20
+      useGlobalDataSourceStat: true
+      # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+      connectionProperties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=500
+      # 配置StatFilter
+      web-stat-filter:
+        #默认为false，设置为true启动
+        enabled: true
+        url-pattern: "/*"
+        exclusions: "*.js,*.gif,*.jpg,*.bmp,*.png,*.css,*.ico,/druid/*"
+      #配置StatViewServlet
+      stat-view-servlet:
+        url-pattern: "/druid/*"
+        #允许那些ip
+        allow: 127.0.0.1
+        login-username: druid
+        login-password: druid
+        #禁止那些ip
+        #        deny: 192.168.1.102
+        #是否可以重置
+        reset-enable: true
+        #启用
+        enabled: true
   redis:
     port: 6379
     host: 39.102.87.156
-    password: {就不告诉你}
+    password: {}
+    timeout: 1000
 
 rocketmq:
   name-server: 39.102.87.156:9876

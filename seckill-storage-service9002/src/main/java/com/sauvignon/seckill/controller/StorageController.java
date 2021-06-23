@@ -71,25 +71,4 @@ public class StorageController
         return new ResponseResult<>(ResponseCode.SUCCESS,"success",commodity);
     }
 
-    @PostMapping("/storage/deal/{commodityId}/{count}")
-    public ResponseResult deal(@PathVariable("commodityId") Long commodityId,
-                                             @PathVariable("count") Integer count)
-    {
-        if(commodityId==null || commodityId <=0 || count==null || count<=0)
-            return new ResponseResult(ResponseCode.ILLEGAL_ARGUMENT,"参数有误");
-        //catch deal量溢出
-        Integer code = null;
-        try {
-            code = storageService.deal(commodityId, count).getCode();
-            int retires=1;
-            while(code.equals(ServiceCode.RETRY) && retires-->0)
-                code=storageService.deal(commodityId, count).getCode();
-        } catch (Exception e) {
-            return new ResponseResult(ResponseCode.ERROR,"成交量溢出总量，无法消费！");
-        }
-        if(!code.equals(ServiceCode.SUCCESS))
-            return new ResponseResult(ResponseCode.ERROR,"所获取失败，无法deal！");
-        return new ResponseResult(ResponseCode.SUCCESS,"success");
-    }
-
 }

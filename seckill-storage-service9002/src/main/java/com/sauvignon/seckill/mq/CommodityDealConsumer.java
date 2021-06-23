@@ -8,6 +8,8 @@ import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.atomic.LongAdder;
+
 @Component
 @Slf4j
 @RocketMQMessageListener(
@@ -22,6 +24,7 @@ public class CommodityDealConsumer implements RocketMQListener<Order>
     @Override
     public void onMessage(Order order)
     {
+        //TODO: LongAdder 减少锁争用
         storageService.deal(order.getCommodityId(),order.getCount());
     }
 }

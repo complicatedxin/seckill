@@ -35,28 +35,4 @@ public class OrderController
         return new ResponseResult<>(ResponseCode.SUCCESS,"success",serviceResult.getBody());
     }
 
-    @PostMapping("/order/payment/pre/check/{orderId}/{orderFlag}")
-    public ServiceResult<Integer> paymentPreCheck(@PathVariable("orderId")Long orderId,
-                                                  @PathVariable("orderFlag")String orderFlag)
-    {
-        return orderService.paymentPreCheck(orderId, orderFlag);
-    }
-
-    @PostMapping("/order/payment/pre/check/{orderId}")
-    public ResponseResult<Order> paymentPostCheck(@PathVariable("orderId")Long orderId)
-    {
-        ServiceResult<Order> serviceResult = orderService.paymentPostCheck(orderId);
-        Integer code = serviceResult.getCode();
-        int retires=2;
-        while(code.equals(ServiceCode.RETRY) && retires-->0)
-        {
-            serviceResult=orderService.paymentPostCheck(orderId);
-            code=serviceResult.getCode();
-        }
-        if(serviceResult.getCode().equals(ServiceCode.SUCCESS))
-            return new ResponseResult<>(ResponseCode.SUCCESS,"订单状态无异常",serviceResult.getBody());
-        else
-            return new ResponseResult<>(ResponseCode.REQUEST_FAIL,"订单已结束或异常，退款",serviceResult.getBody());
-    }
-
 }

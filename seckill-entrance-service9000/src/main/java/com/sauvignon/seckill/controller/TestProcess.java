@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @RestController
 public class TestProcess
@@ -66,7 +67,7 @@ public class TestProcess
             return new ResponseResult(404,"活动结束",null);
         orderUrl+="?activityId=test";
 
-        TimeUnit.MILLISECONDS.sleep(500);
+        TimeUnit.MILLISECONDS.sleep(200);
 
         //2. 下单
         responseResult = restTemplate.postForObject(orderUrl, null, ResponseResult.class);
@@ -75,7 +76,7 @@ public class TestProcess
         if(paymentUrl==null)
             return new ResponseResult(404,"id repeat",null);
 
-        TimeUnit.MILLISECONDS.sleep(6000);
+        TimeUnit.MILLISECONDS.sleep(2000);
 
         //3. 支付
         responseResult=restTemplate.getForObject(paymentUrl,ResponseResult.class);
@@ -98,21 +99,26 @@ public class TestProcess
     @RequestMapping("/multi")
     public void multiOrder() throws InterruptedException
     {
-        for(int i=0;i<10;i++)
+        for(int i=0;i<50;i++)
         {
             new Thread(()->{
                 for(int j=0;j<10;j++)
                 {
-                    int id=new Random().nextInt(10000);
+                    try {
+                        this.begin();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+//                    int id=new Random().nextInt(10000);
+//
+//                    System.out.println(id);
+//
+//                    Long userId=new Integer(id).longValue();
+//                    Map<String,Object> map=new HashMap<>();
+//                    map.put("userId",userId);
+//                    String token = JwtUtil.generateToken(map, Calendar.HOUR, 24 * 7);
 
-                    System.out.println(id);
-
-                    Long userId=new Integer(id).longValue();
-                    Map<String,Object> map=new HashMap<>();
-                    map.put("userId",userId);
-                    String token = JwtUtil.generateToken(map, Calendar.HOUR, 24 * 7);
-
-                    //                        this.begin(token);
+//                    this.begin(token);
 
                     try {
                         TimeUnit.MILLISECONDS.sleep(200);
@@ -123,7 +129,7 @@ public class TestProcess
                 }
             }).start();
 
-            TimeUnit.MILLISECONDS.sleep(500);
+            TimeUnit.MILLISECONDS.sleep(200);
         }
     }
 
@@ -133,11 +139,15 @@ public class TestProcess
         return cacheProvider.getCommodity(1L);
     }
 
+    private AtomicInteger e=new AtomicInteger(0);
+    //模拟数据
     @RequestMapping("/stuff")
     public void stuffData()
     {
-        int totalNum=1000;
-        //todo：模拟数据库数据
+        boolean b = e.compareAndSet(0, 1);
+        if(!b) return;
+        int totalNum=400;
+        System.out.println("===初始化===");
         Commodity commodity=new Commodity(1L,new BigDecimal(0.99),totalNum,0,0);
         redisUtil.set(Constants.seckillCommodity(1L),commodity);
         for(int i=0;i<totalNum;i++)

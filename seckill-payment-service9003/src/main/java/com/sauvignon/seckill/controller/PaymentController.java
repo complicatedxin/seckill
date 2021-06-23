@@ -40,6 +40,12 @@ public class PaymentController
         //1. 验证订单状态
         ServiceResult<Integer> serviceResult = paymentAspectService.paymentPreCheck(orderId,orderFlag);
         Integer code = serviceResult.getCode();
+        int reties=2;
+        while(code.equals(ServiceCode.RETRY) && reties-->0)
+        {
+            serviceResult=paymentAspectService.paymentPreCheck(orderId,orderFlag);
+            code=serviceResult.getCode();
+        }
         if(code.equals(ServiceCode.SUCCESS))
             //2. TODO: 调用支付接口返回付款二维码
             return new ResponseResult<>(ResponseCode.SUCCESS,"请扫码支付",orderId);
@@ -58,13 +64,8 @@ public class PaymentController
     @RequestMapping("/seckill/payment/ali/callback")
     public void paymentAliCallback(@RequestParam("orderId")Long orderId)
     {
-        ServiceResult<Long> serviceResult = null;
-        //catch storage执行deal失败
-        try {
-            serviceResult = paymentAspectService.paymentDeal(orderId);
-        } catch (Exception e) {
-            //想办法重新deal
-        }
+        ServiceResult<Long> serviceResult = paymentAspectService.paymentDeal(orderId);
+
         if(serviceResult.getCode().equals(ServiceCode.FAIL))
         {
             System.out.println("日你妈！退钱");
