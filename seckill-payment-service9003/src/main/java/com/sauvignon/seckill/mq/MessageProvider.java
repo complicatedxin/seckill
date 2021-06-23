@@ -4,6 +4,7 @@ import com.sauvignon.seckill.pojo.entities.Order;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,10 +14,17 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class MessageProvider
 {
-    //TODO: 对 callback error 降级处理
-
     @Autowired
     private RocketMQTemplate rocketMQTemplate;
+
+
+    public boolean syncSendOrderly(String topic,String tag,Object payload,String hashKey)
+    {
+        SendResult sendResult = rocketMQTemplate.syncSendOrderly(topic + ":" + tag, payload, hashKey, 1000);
+        if(sendResult.getSendStatus().equals(SendStatus.SEND_OK))
+            return true;
+        return false;
+    }
 
     public void asyncSendOrderly(String topic,String tag,Object payload,String hashKey)
     {

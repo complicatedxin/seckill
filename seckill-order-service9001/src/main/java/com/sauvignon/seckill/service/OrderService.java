@@ -14,7 +14,4 @@ public interface OrderService
     ServiceResult addOne(Order order);
 
     ServiceResult<Integer> updateStatus(Long orderId, Integer orderStatus);
-
-    ServiceResult<Integer> paymentPreCheck(Long orderId,String orderFlag);
-    ServiceResult<Order> paymentPostCheck(Long orderId);
 }

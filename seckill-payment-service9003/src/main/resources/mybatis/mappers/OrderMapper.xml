@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sauvignon.seckill.mapper.OrderMapper">
+
+    <resultMap id="orderMap" type="com.sauvignon.seckill.pojo.entities.Order">
+        <id column="order_id" property="orderId" jdbcType="BIGINT" />
+        <result column="commod_id" property="commodityId" jdbcType="BIGINT" />
+        <result column="count" property="count" jdbcType="INTEGER" />
+        <result column="user_id" property="userId" jdbcType="BIGINT" />
+        <result column="amount" property="amount" jdbcType="DECIMAL" />
+        <result column="order_status" property="orderStatus" jdbcType="INTEGER" />
+    </resultMap>
+
+    <sql id="allColumns">
+        order_id, commod_id, count, user_id, amount, order_status
+    </sql>
+
+    <select id="findOne" resultMap="orderMap">
+        SELECT <include refid="allColumns" />
+        FROM sk_order
+        WHERE order_id=#{orderId}
+    </select>
+
+    <update id="updateStatus" >
+        UPDATE sk_order
+        SET order_status = #{orderStatus}
+        WHERE order_id=#{orderId}
+    </update>
+
+    <insert id="addOne" parameterType="com.sauvignon.seckill.pojo.entities.Order">
+        INSERT INTO sk_order
+        ( <include refid="allColumns" /> )
+        VALUES
+        ( #{orderId},#{commodityId},#{count},#{userId},#{amount},#{orderStatus} )
+    </insert>
+
+</mapper>

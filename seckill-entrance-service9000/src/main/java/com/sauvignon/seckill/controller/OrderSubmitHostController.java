@@ -77,9 +77,14 @@ public class OrderSubmitHostController
                 TimeUnit.SECONDS);
         //2.2 通知rocketMQ：
         //   ①通知处理订单
-        messageProvider.asyncSendOrderly(msgTopic,consumeTag,
+        boolean sendResult = messageProvider.syncSendOrderly(msgTopic, consumeTag,
                 order,
                 Constants.ORDER_MESSAGE_HASHKEY);
+        if(!sendResult)
+        {
+            redisUtil.del(orderFlagKey);
+            return new ResponseResult(200,"下单失败",null);
+        }
         //   ②通知检查订单支付超时
         messageProvider.sendDelay(msgTopic,overTimeTag, orderFlagKey);
 

@@ -13,8 +13,6 @@ import org.springframework.stereotype.Component;
 @Slf4j
 public class MessageProvider
 {
-    //TODO: 对 callback error 降级处理
-
     @Autowired
     private RocketMQTemplate rocketMQTemplate;
 

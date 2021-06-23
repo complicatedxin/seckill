@@ -19,7 +19,7 @@ public class ZkClient
                 .sessionTimeoutMs(60*1000)
                 .connectionTimeoutMs(15*1000)
                 .retryPolicy(retryPolicy)
-                .namespace("seckill-order-service")
+                .namespace("seckill-project")
                 .build();
 
         return client;

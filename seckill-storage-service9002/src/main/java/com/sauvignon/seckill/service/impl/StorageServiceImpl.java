@@ -10,6 +10,7 @@ import com.sauvignon.seckill.utils.RedisUtil;
 import com.sauvignon.seckill.utils.ZkClient;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.concurrent.TimeUnit;
@@ -28,8 +29,8 @@ public class StorageServiceImpl implements StorageService
         //1. 申请分布式锁
         CuratorFramework client = ZkClient.getClient();
         client.start();
-        InterProcessMutex lock=
-                new InterProcessMutex(client, Constants.storageManageLockPath(commodityId));
+        InterProcessSemaphoreMutex lock=
+                new InterProcessSemaphoreMutex(client, Constants.storageManageLockPath(commodityId));
         try {
             //获取时间：3s：可能存在很多业务在这里执行增减，故尝试3s
             boolean acquire = lock.acquire(3, TimeUnit.SECONDS);
@@ -67,8 +68,8 @@ public class StorageServiceImpl implements StorageService
         //1. 申请分布式锁
         CuratorFramework client = ZkClient.getClient();
         client.start();
-        InterProcessMutex lock=
-                new InterProcessMutex(client, Constants.storageManageLockPath(commodityId));
+        InterProcessSemaphoreMutex lock=
+                new InterProcessSemaphoreMutex(client, Constants.storageManageLockPath(commodityId));
         try {
             boolean acquire = lock.acquire(3, TimeUnit.SECONDS);
             if(acquire)
@@ -108,6 +109,9 @@ public class StorageServiceImpl implements StorageService
         //redis mysql 双写一致：延时缓存双删
         redisUtil.del(Constants.seckillCommodity(commodityId));
         ServiceResult<Integer> serviceResult = increaseDeal(commodityId, count);
+        int retries=2;
+        while(serviceResult.getCode().equals(ServiceCode.RETRY) && retries-->0)
+            serviceResult = increaseDeal(commodityId, count);
         //第二次删除睡眠时间：400ms，参见CacheProvider流程，其耗时292ms
         try {
             TimeUnit.MILLISECONDS.sleep(400);
@@ -122,10 +126,11 @@ public class StorageServiceImpl implements StorageService
         //1. 申请分布式锁
         CuratorFramework client = ZkClient.getClient();
         client.start();
-        InterProcessMutex lock=
-                new InterProcessMutex(client, Constants.storageManageLockPath(commodityId));
+        InterProcessSemaphoreMutex lock=
+                new InterProcessSemaphoreMutex(client, Constants.storageManageLockPath(commodityId));
         try {
-            boolean acquire = lock.acquire(3, TimeUnit.SECONDS);
+            //锁争用情况极高
+            boolean acquire = lock.acquire(4, TimeUnit.SECONDS);
             if(acquire)
             {
                 //2. 检查数量
