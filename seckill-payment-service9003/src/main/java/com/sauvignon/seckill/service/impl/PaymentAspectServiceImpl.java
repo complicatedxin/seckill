@@ -41,7 +41,7 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
     @Override
     public ServiceResult<Integer> paymentPreCheck(Long orderId, String orderFlag)
     {
-        //1.判断用户的订单超时时间
+        //1.1 判断用户的订单超时时间
         //如果没超时那么用户可能支付的上(退单服务在30s后执行)
         //如果30s外支付完，那么失败，退钱(期间内库存已回退了)
         //超时当失败处理，不允许在付款，等待库存回退
@@ -49,6 +49,11 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
         boolean b = expireTime <= Constants.SECKILL_ORDER_OVERTIME;
         if(b)
             return new ServiceResult<>(ServiceCode.FAIL,"订单已结束", OrderStatus.FINISHED);
+        //1.2 查看订单是否存在：下单业务中失败
+        Order order = orderMapper.findOne(orderId);
+        //如果订单没有创建成功，直接return
+        if(order==null)
+            return new ServiceResult<>(ServiceCode.RETRY, "order==null：订单未处理",OrderStatus.PRE_CREATE);
         //2. 获取分布式锁
         //todo: zk
         long start= System.currentTimeMillis();
@@ -57,7 +62,7 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
         InterProcessSemaphoreMutex lock=new InterProcessSemaphoreMutex(client,
                 Constants.orderStatusLockPath(orderId));
         try {
-            //尝试2s: 争用高，可以多尝试
+            //尝试2s: 争用高，多此尝试
             boolean acquire = lock.acquire(2, TimeUnit.SECONDS);
             if(acquire)
             {
@@ -65,22 +70,25 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
                 System.out.println("zk:"+(end-start));
 
                 //3. 检查订单状态
-                Order order = orderMapper.findOne(orderId);
+                order = orderMapper.findOne(orderId);//保证状态
                 //如果订单没有创建成功，直接return
-                if(order==null)
-                    return new ServiceResult<>(ServiceCode.FAIL, "order==null",OrderStatus.CREATE_FAIL);
-                Integer status = order.getOrderStatus();
+                Integer orderStat;
+                if(order==null ||
+                        ((orderStat=order.getOrderStatus()).equals(OrderStatus.PRE_CREATE)
+                                || orderStat.equals(OrderStatus.CREATE_FAIL)) )
+                    return new ServiceResult<>(ServiceCode.FAIL, "订单创建失败",OrderStatus.CREATE_FAIL);
+                orderStat = order.getOrderStatus();
                 //如果状态为已创建，可以直接支付
-                if(status.equals(OrderStatus.CREATED))
+                if(orderStat.equals(OrderStatus.CREATED))
                 {
                     //3. 标记预支付状态
                     orderMapper.updateStatus(orderId,OrderStatus.PRE_PURCHASE);
                     return new ServiceResult<>(ServiceCode.SUCCESS,"订单已经创建完",OrderStatus.CREATED);
                 }
-                //现在是秒杀！如果状态为支付前，说明用户之前进入到扫码支付界面，但支付结果未知，再次请求不接受
-                else if(status.equals(OrderStatus.PRE_PURCHASE))
+                //现在是秒杀:如果状态为支付前，说明用户之前进入到扫码支付界面，但支付结果未知，再次请求不接受
+                else if(orderStat.equals(OrderStatus.PRE_PURCHASE))
                     return new ServiceResult<>(ServiceCode.FAIL,"已开启了一次支付操作",OrderStatus.PRE_PURCHASE);
-                else //订单结束，订单创建中间态（有问题了）
+                else //订单结束，订单创建中间态（有问题）
                     return new ServiceResult<>(ServiceCode.FAIL,"订单已结束",OrderStatus.FINISHED);
             }
         } catch (Exception e) {
@@ -102,6 +110,9 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
     {
         //1. 调用订单服务修改状态（如果支付完发现该订单已被回退（超时），那么回退付款）
         ServiceResult<Order> checkResult = paymentPostCheck(orderId);
+        int retries=2;
+        while(checkResult.getCode().equals(ServiceCode.RETRY) && retries-->0)
+            checkResult=paymentPostCheck(orderId);
         if(!checkResult.getCode().equals(ServiceCode.SUCCESS))
             return new ServiceResult<>(ServiceCode.FAIL,"退款",orderId);
         //2. 发送消息通知仓储服务扣减数据库数据
@@ -140,14 +151,12 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
                 if(status.equals(OrderStatus.PRE_PURCHASE))
                 {
                     orderMapper.updateStatus(orderId,OrderStatus.PURCHASED);
-                    return new ServiceResult<>(ServiceCode.SUCCESS,
-                            "订单状态正常",order);
+                    return new ServiceResult<>(ServiceCode.SUCCESS, "订单状态正常",order);
                 }
                 else //不正常状态都退款
                 {
                     orderMapper.updateStatus(orderId,OrderStatus.WAIT_TO_REFUND);
-                    return new ServiceResult<>(ServiceCode.FAIL,
-                            "订单状态异常，需要回退",order);
+                    return new ServiceResult<>(ServiceCode.FAIL, "订单状态异常，需要回退",order);
                 }
             }
         } catch (Exception e) {

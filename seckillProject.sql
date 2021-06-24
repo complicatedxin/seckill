@@ -12,7 +12,9 @@ create table sk_order(
     amount DECIMAL(11,0) DEFAULT NULL COMMENT '总价',
     order_status INT(4) not NULL COMMENT '订单状态：0预创建，1创建完成，
 				2预消费，3消费完成，4消费失败，
-				5预支付，6支付完成，7支付失败（超时），...'
+				5预支付，6支付完成，7支付失败（超时），
+                19创建失败，8订单结束，
+                9等待退款，10已退款...;'
 );
 create table sk_commodity(
 	commod_id BIGINT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,

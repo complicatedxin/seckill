@@ -11,7 +11,7 @@ public interface OrderService
 
     Order findOne(Long orderId);
 
-    ServiceResult addOne(Order order);
+    int addOne(Order order);
 
     ServiceResult<Integer> updateStatus(Long orderId, Integer orderStatus);
 }

@@ -1,22 +1,17 @@
 package com.sauvignon.seckill.controller;
 
-import cn.hutool.json.JSONObject;
 import com.sauvignon.seckill.constants.Constants;
 import com.sauvignon.seckill.pojo.dto.ResponseResult;
 import com.sauvignon.seckill.pojo.entities.Commodity;
 import com.sauvignon.seckill.utils.CacheProvider;
-import com.sauvignon.seckill.utils.JwtUtil;
 import com.sauvignon.seckill.utils.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.*;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
-import java.sql.Time;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -64,7 +59,10 @@ public class TestProcess
 
         String orderUrl = (String) responseResult.getBody();
         if(orderUrl==null)
+        {
+            System.out.println("活动结束！");
             return new ResponseResult(404,"活动结束",null);
+        }
         orderUrl+="?activityId=test";
 
         TimeUnit.MILLISECONDS.sleep(200);
@@ -97,9 +95,9 @@ public class TestProcess
 
 
     @RequestMapping("/multi")
-    public void multiOrder() throws InterruptedException
+    public void multiOrder(@RequestParam("num")int num) throws InterruptedException
     {
-        for(int i=0;i<50;i++)
+        for(int i=0;i<num;i++)
         {
             new Thread(()->{
                 for(int j=0;j<10;j++)
@@ -139,20 +137,26 @@ public class TestProcess
         return cacheProvider.getCommodity(1L);
     }
 
-    private AtomicInteger e=new AtomicInteger(0);
     //模拟数据
+    private AtomicInteger thre=new AtomicInteger(0);
     @RequestMapping("/stuff")
-    public void stuffData()
+    public String stuffData(@RequestParam("num")int num)
     {
-        boolean b = e.compareAndSet(0, 1);
-        if(!b) return;
-        int totalNum=400;
+        boolean b = thre.compareAndSet(0, 1);
+        if(!b) return "closed";
+        int totalNum=num;
         System.out.println("===初始化===");
         Commodity commodity=new Commodity(1L,new BigDecimal(0.99),totalNum,0,0);
         redisUtil.set(Constants.seckillCommodity(1L),commodity);
         for(int i=0;i<totalNum;i++)
             System.out.println(redisUtil.lPush(Constants.consumedRedisKey(1L), i + 1));
         System.out.println("=====初始化完成=====");
+        return "=====初始化完成=====";
+    }
+    @RequestMapping("/openStuff")
+    public boolean openStuff()
+    {
+        return this.thre.compareAndSet(1,0);
     }
 
 }

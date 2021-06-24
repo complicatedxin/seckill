@@ -2,11 +2,9 @@ package com.sauvignon.seckill.service.impl;
 
 import com.sauvignon.seckill.constants.Constants;
 import com.sauvignon.seckill.constants.OrderStatus;
-import com.sauvignon.seckill.constants.ResponseCode;
 import com.sauvignon.seckill.constants.ServiceCode;
 import com.sauvignon.seckill.mapper.OrderMapper;
 import com.sauvignon.seckill.mq.MessageProvider;
-import com.sauvignon.seckill.pojo.dto.ResponseResult;
 import com.sauvignon.seckill.pojo.dto.ServiceResult;
 import com.sauvignon.seckill.pojo.entities.Commodity;
 import com.sauvignon.seckill.pojo.entities.Order;
@@ -15,8 +13,8 @@ import com.sauvignon.seckill.service.StorageService;
 import com.sauvignon.seckill.utils.RedisUtil;
 import com.sauvignon.seckill.utils.ZkClient;
 import io.seata.spring.annotation.GlobalTransactional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
-import org.apache.curator.framework.recipes.locks.InterProcessMutex;
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +23,7 @@ import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @Service
+@Slf4j
 public class OrderServiceImpl implements OrderService
 {
     @Autowired
@@ -42,61 +41,19 @@ public class OrderServiceImpl implements OrderService
     private String overTimeTag;
 
     @Override
-    @GlobalTransactional(name = "create-order",rollbackFor = Exception.class)//回退失败可能在库存服务上
+    @GlobalTransactional(name = "create-order", timeoutMills = 15000,rollbackFor = Exception.class)
     public void handleOrder(Order order)
     {
-        //1. 验证信息
-        Long commodityId = order.getCommodityId();
-        Integer orderCount = order.getCount();
-        Long orderId = order.getOrderId();
-        if(orderId ==null
-                || commodityId ==null
-                || order.getUserId()==null
-                || orderCount !=1)
-            throw new IllegalArgumentException("订单参数错误");
-        //2. 从redis获取consumed
-        Integer result = (Integer) redisUtil.lPop(Constants.consumedRedisKey(commodityId));
-        if(result==null) return;
-        //3. 合算价钱
-        Commodity commodity = storageService.findOne(commodityId).getBody();
-        BigDecimal amount = commodity.getPrice().multiply(new BigDecimal(orderCount));
-        if(amount.compareTo(new BigDecimal(0))==-1)//价钱不能比0小
-            throw new IllegalArgumentException("总价不能为负：单价或商品数量有误");
-        //4. 生成预订单
-        order.setAmount(amount);
-        order.setOrderStatus(OrderStatus.PRE_CREATE);
-        //-- 申请分布式锁
-        CuratorFramework client = ZkClient.getClient();
-        client.start();
-        InterProcessSemaphoreMutex lock=
-                new InterProcessSemaphoreMutex(client, Constants.orderStatusLockPath(orderId));
-        try {
-            boolean acquire = lock.acquire(3, TimeUnit.SECONDS);
-            if(acquire)
-            {
-                this.addOne(order);
-                //4. 调用减库存服务修改consumed字段（废除：减少分布式锁争用）
-//                ResponseResult response=storageService.increaseConsumed(commodityId, orderCount);
-//                if(!response.getCode().equals(ResponseCode.SUCCESS))
-//                    throw new RuntimeException("storageService执行increaseConsumed失败");
-                //5. 生成订单
-                this.updateStatus(orderId,OrderStatus.CREATED);
-            }
-            else
-                throw new RuntimeException("订单创建失败：未获取到锁！consumedNum:"+result);
-        } catch (Exception e) {
-            //下单失败：回退consumed
-            String message = e.getMessage();
-            Integer consumedNum=Integer.parseInt(message.substring(message.lastIndexOf(":")+1));
-            redisUtil.lPush(Constants.consumedRedisKey(commodityId),consumedNum);
-        } finally {
-            try {
-                lock.release();
-                client.close();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
+        //4.1 调用减库存服务修改consumed字段（废除：减少分布式锁争用）
+//        ResponseResult response=storageService.increaseConsumed(commodityId, orderCount);
+//        if(!response.getCode().equals(ResponseCode.SUCCESS))
+//            throw new RuntimeException("storageService执行increaseConsumed失败");
+        //4.2 调用其他用户服务
+        //
+        //5. 生成订单
+        int updateSign=orderMapper.updateStatus(order.getOrderId(), OrderStatus.CREATED);
+        if(updateSign!=1)
+            throw new RuntimeException("订单创建失败！");
     }
 
     @Override
@@ -131,8 +88,11 @@ public class OrderServiceImpl implements OrderService
                 //2. 检查订单状态
                 order = orderMapper.findOne(orderId);
                 //如果订单没有创建成功，直接return
-                if(order==null)
+                if(order==null || order.getOrderStatus().equals(OrderStatus.PRE_CREATE))
+                {
+                    orderMapper.updateStatus(orderId,OrderStatus.CREATE_FAIL);
                     return new ServiceResult(ServiceCode.SUCCESS,"订单没有创建成功");
+                }
                 Integer status = order.getOrderStatus();
                 //没有支付结果，订单失效
                 if( ! ( status.equals(OrderStatus.PURCHASED)
@@ -175,15 +135,15 @@ public class OrderServiceImpl implements OrderService
     }
 
     @Override
-    public ServiceResult<Integer> addOne(Order order)
+    public int addOne(Order order)
     {
         int addCount = 0;
         try {
             addCount = orderMapper.addOne(order);
         } catch (Exception e) {
-            return new ServiceResult<>(ServiceCode.FAIL,"addOne失败",null);
+            throw new RuntimeException("订单添加数据库失败！");
         }
-        return new ServiceResult<>(ServiceCode.SUCCESS,"addOne完毕",addCount);
+        return addCount;
     }
 
     @Override

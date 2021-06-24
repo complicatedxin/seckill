@@ -46,19 +46,17 @@ public class PaymentController
             serviceResult=paymentAspectService.paymentPreCheck(orderId,orderFlag);
             code=serviceResult.getCode();
         }
-        if(code.equals(ServiceCode.SUCCESS))
-            //2. TODO: 调用支付接口返回付款二维码
-            return new ResponseResult<>(ResponseCode.SUCCESS,"请扫码支付",orderId);
-        else if(code.equals(ServiceCode.FAIL))//失败
+        switch (code)
         {
-            if(serviceResult.getBody().equals(OrderStatus.PRE_PURCHASE))
-                //之前开启过支付，但再次付款不接受（现在是秒杀！）
-                return new ResponseResult(ResponseCode.REQUEST_FAIL,"重试请求付款，不接受！",null);
-            else
+            case ServiceCode.SUCCESS:
+                //2. TODO: 调用支付接口返回付款二维码
+                return new ResponseResult<>(ResponseCode.SUCCESS,"请扫码支付",orderId);
+            case ServiceCode.FAIL://失败
                 return new ResponseResult(ResponseCode.REQUEST_FAIL,"订单失效！",null);
+            case ServiceCode.RETRY://未获取到锁
+                return new ResponseResult<>(ResponseCode.RETRY,"请重试",null);
         }
-        else //未获取到锁
-            return new ResponseResult<>(ResponseCode.RETRY,"请重试",null);
+        return new ResponseResult<>(ResponseCode.RETRY,"请重试",null);
     }
 
     @RequestMapping("/seckill/payment/ali/callback")

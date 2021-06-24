@@ -107,11 +107,12 @@ public class StorageServiceImpl implements StorageService
     public ServiceResult<Integer> deal(Long commodityId, Integer count)
     {
         //redis mysql 双写一致：延时缓存双删
-        redisUtil.del(Constants.seckillCommodity(commodityId));
         ServiceResult<Integer> serviceResult = increaseDeal(commodityId, count);
         int retries=2;
         while(serviceResult.getCode().equals(ServiceCode.RETRY) && retries-->0)
             serviceResult = increaseDeal(commodityId, count);
+        if(!serviceResult.getCode().equals(ServiceCode.SUCCESS))
+            throw new RuntimeException("扣减库存失败！");
         //第二次删除睡眠时间：400ms，参见CacheProvider流程，其耗时292ms
         try {
             TimeUnit.MILLISECONDS.sleep(400);
@@ -138,6 +139,7 @@ public class StorageServiceImpl implements StorageService
                 if(commodity.getDeal() >= commodity.getTotal()) //正常不会出现deal溢出
                     throw new IllegalAccessException("成交量溢出总量，无法消费！");
                 //3. 改deal字段
+                redisUtil.del(Constants.seckillCommodity(commodityId));
                 int i = commodityMapper.updateDeal(commodityId, count);
                 return new ServiceResult<>(ServiceCode.SUCCESS, "修改成功",i);
             }

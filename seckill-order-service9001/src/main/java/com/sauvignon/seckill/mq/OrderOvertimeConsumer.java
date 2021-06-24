@@ -31,7 +31,8 @@ public class OrderOvertimeConsumer implements RocketMQReplyListener<String,Strin
         Integer code = orderService.abandonOvertimeOrder(orderFlagKey).getCode();
         while(code.equals(ServiceCode.RETRY) && retries-->0)
             code=orderService.abandonOvertimeOrder(orderFlagKey).getCode();
-
+        if(!code.equals(ServiceCode.SUCCESS))
+            throw new RuntimeException("回退订单失败！");
         return orderFlagKey;
     }
 }
