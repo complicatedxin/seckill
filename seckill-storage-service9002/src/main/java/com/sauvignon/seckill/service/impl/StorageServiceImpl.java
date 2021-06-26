@@ -24,6 +24,7 @@ public class StorageServiceImpl implements StorageService
     private CommodityMapper commodityMapper;
 
     @Override
+    @Deprecated
     public ServiceResult increaseConsumed(Long commodityId, Integer count)
     {
         //1. 申请分布式锁
@@ -63,6 +64,7 @@ public class StorageServiceImpl implements StorageService
     }
 
     @Override
+    @Deprecated
     public ServiceResult decreaseConsumed(Long commodityId, Integer count)
     {
         //1. 申请分布式锁
@@ -130,10 +132,14 @@ public class StorageServiceImpl implements StorageService
         InterProcessSemaphoreMutex lock=
                 new InterProcessSemaphoreMutex(client, Constants.storageManageLockPath(commodityId));
         try {
-            //锁争用情况极高
+            //锁排队情况严重
+            //todo: zk
+            long start= System.currentTimeMillis();
             boolean acquire = lock.acquire(4, TimeUnit.SECONDS);
             if(acquire)
             {
+                long end= System.currentTimeMillis();
+                System.out.println("zk-Acquire:"+(end-start));
                 //2. 检查数量
                 Commodity commodity = commodityMapper.findOne(commodityId);
                 if(commodity.getDeal() >= commodity.getTotal()) //正常不会出现deal溢出

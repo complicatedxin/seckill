@@ -6,7 +6,9 @@ import com.sauvignon.seckill.constants.SkActivityStatus;
 import com.sauvignon.seckill.mq.MessageProvider;
 import com.sauvignon.seckill.pojo.dto.ResponseResult;
 import com.sauvignon.seckill.pojo.entities.Order;
+import com.sauvignon.seckill.pojo.entities.OrderLog;
 import com.sauvignon.seckill.pojo.entities.SeckillActivity;
+import com.sauvignon.seckill.schedule.RecordOrderTask;
 import com.sauvignon.seckill.service.SkActivityService;
 import com.sauvignon.seckill.utils.JwtUtil;
 import com.sauvignon.seckill.utils.RedisUtil;
@@ -17,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 @RestController
@@ -29,6 +32,10 @@ public class OrderSubmitHostController
     private MessageProvider messageProvider;
     @Autowired
     private SkActivityService skActivityService;
+    @Autowired
+    private ThreadPoolExecutor threadPool;
+    @Autowired
+    private RecordOrderTask recordOrderTask;
 
     @Value("${server.port}")
     private String serverPort;
@@ -70,7 +77,6 @@ public class OrderSubmitHostController
         Order order=new Order(orderId,
                 commodityId, Constants.SECKILL_COMMODITY_COUNT,
                 userId,null,null);
-        //2.- TODO：记录:异步存入mysql
         //2.1 标记redis（key用于判断是否下过单，时长0.5小时；value存储订单号用于支付超时）
         redisUtil.setnx(orderFlagKey, orderId,
                 Constants.SECKILL_ORDER_TIME_RESTRICTION,
@@ -87,7 +93,9 @@ public class OrderSubmitHostController
         }
         //   ②通知检查订单支付超时
         messageProvider.sendDelay(msgTopic,overTimeTag, orderFlagKey);
-
+        //2.3 记录:异步存入mysql
+        threadPool.submit(recordOrderTask.record(
+                new OrderLog(orderId,commodityId,order.getCount(),userId) ));
         //3. 返回支付链接地址
         String paymentUrl=Constants.paymentHostPath(orderId,userId,commodityId);
         return new ResponseResult(200,"下单成功",paymentUrl);

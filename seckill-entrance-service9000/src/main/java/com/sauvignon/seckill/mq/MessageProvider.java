@@ -17,7 +17,7 @@ public class MessageProvider
 
     public boolean syncSendOrderly(String topic,String tag,Object payload,String hashKey)
     {
-        SendResult sendResult = rocketMQTemplate.syncSendOrderly(topic + ":" + tag, payload, hashKey, 1000);
+        SendResult sendResult = rocketMQTemplate.syncSendOrderly(topic + ":" + tag, payload, hashKey, 2000);
         if(sendResult.getSendStatus().equals(SendStatus.SEND_OK))
             return true;
         return false;

@@ -15,6 +15,8 @@ import com.sauvignon.seckill.utils.RedisUtil;
 import com.sauvignon.seckill.utils.ZkClient;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,8 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
     private StorageService storageService;
     @Autowired
     private RedisUtil redisUtil;
+    @Autowired
+    private RedissonClient redisson;
     @Autowired
     private MessageProvider messageProvider;
 
@@ -55,20 +59,12 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
         if(order==null)
             return new ServiceResult<>(ServiceCode.RETRY, "order==null：订单未处理",OrderStatus.PRE_CREATE);
         //2. 获取分布式锁
-        //todo: zk
-        long start= System.currentTimeMillis();
-        CuratorFramework client = ZkClient.getClient();
-        client.start();
-        InterProcessSemaphoreMutex lock=new InterProcessSemaphoreMutex(client,
-                Constants.orderStatusLockPath(orderId));
+        RLock lock = redisson.getFairLock(Constants.orderStatusLockPath(orderId));
         try {
-            //尝试2s: 争用高，多此尝试
-            boolean acquire = lock.acquire(2, TimeUnit.SECONDS);
+            //尝试2s: 争用高，多次尝试
+            boolean acquire = lock.tryLock(2, TimeUnit.SECONDS);
             if(acquire)
             {
-                long end= System.currentTimeMillis();
-                System.out.println("zk:"+(end-start));
-
                 //3. 检查订单状态
                 order = orderMapper.findOne(orderId);//保证状态
                 //如果订单没有创建成功，直接return
@@ -95,8 +91,7 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
             e.printStackTrace();
         } finally {
             try {
-                lock.release();
-                client.close();
+                lock.unlock();
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -137,12 +132,9 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
     private ServiceResult<Order> paymentPostCheck(Long orderId)
     {
         //获取锁
-        CuratorFramework client = ZkClient.getClient();
-        client.start();
-        InterProcessSemaphoreMutex lock=new InterProcessSemaphoreMutex(client,
-                Constants.orderStatusLockPath(orderId));
+        RLock lock = redisson.getFairLock(Constants.orderStatusLockPath(orderId));
         try {
-            boolean acquire = lock.acquire(2, TimeUnit.SECONDS);
+            boolean acquire = lock.tryLock(3, TimeUnit.SECONDS);
             if(acquire)
             {
                 Order order = orderMapper.findOne(orderId);
@@ -163,8 +155,7 @@ public class PaymentAspectServiceImpl implements PaymentAspectService
             e.printStackTrace();
         } finally {
             try {
-                lock.release();
-                client.close();
+                lock.unlock();
             } catch (Exception e) {
                 e.printStackTrace();
             }

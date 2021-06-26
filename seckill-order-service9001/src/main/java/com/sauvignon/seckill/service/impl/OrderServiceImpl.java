@@ -6,7 +6,6 @@ import com.sauvignon.seckill.constants.ServiceCode;
 import com.sauvignon.seckill.mapper.OrderMapper;
 import com.sauvignon.seckill.mq.MessageProvider;
 import com.sauvignon.seckill.pojo.dto.ServiceResult;
-import com.sauvignon.seckill.pojo.entities.Commodity;
 import com.sauvignon.seckill.pojo.entities.Order;
 import com.sauvignon.seckill.service.OrderService;
 import com.sauvignon.seckill.service.StorageService;
@@ -16,10 +15,11 @@ import io.seata.spring.annotation.GlobalTransactional;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import java.math.BigDecimal;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -30,6 +30,8 @@ public class OrderServiceImpl implements OrderService
     private OrderMapper orderMapper;
     @Autowired
     private RedisUtil redisUtil;
+    @Autowired
+    private RedissonClient redisson;
     @Autowired
     private StorageService storageService;
     @Autowired
@@ -76,13 +78,10 @@ public class OrderServiceImpl implements OrderService
         Long orderId = (Long) redisUtil.get(orderFlagKey);
         Order order=null;
         //1. 获取分布式锁
-        CuratorFramework client = ZkClient.getClient();
-        client.start();
-        InterProcessSemaphoreMutex lock=new InterProcessSemaphoreMutex(client,
-                Constants.orderStatusLockPath(orderId));
+        RLock lock = redisson.getFairLock(Constants.orderStatusLockPath(orderId));
         try {
             //尝试2s：略低于要对状态修改的操作中获取锁的时间
-            boolean acquire = lock.acquire(2, TimeUnit.SECONDS);
+            boolean acquire = lock.tryLock(2, TimeUnit.SECONDS);
             if(acquire)
             {
                 //2. 检查订单状态
@@ -107,24 +106,25 @@ public class OrderServiceImpl implements OrderService
             e.printStackTrace();
         } finally {
             try {
-                lock.release();
-                client.close();
+                lock.unlock();
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
-        //3. 回退库存：调用库存服务（弃用：减少分布式锁）
+        //3.1 回退库存：调用库存服务（弃用：减少分布式锁）
 //        ResponseResult response=
 //                storageService.decreaseConsumed(order.getCommodityId(),-order.getCount());
 //        if(!response.getCode().equals(ResponseCode.SUCCESS))
 //            throw new RuntimeException("storageService执行decreaseConsumed异常");
 //        else
 //            return new ServiceResult(ServiceCode.SUCCESS,"回退库存成功");
-        //3. 释放consumed
+        //3.1 释放consumed
         Long commodityId = Constants.commodityIdInOrderFlagKey(orderFlagKey);
         Long consumedIndex = redisUtil.lPush(Constants.consumedRedisKey(commodityId), 0);
         if(consumedIndex==null)
             throw new RuntimeException("redis执行lPush->consumed异常");
+        //3.2 回退其他数据
+        //(积分)
         return new ServiceResult(ServiceCode.SUCCESS,"回退库存成功");
     }
 

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sauvignon.seckill.mapper.OrderLogMapper">
+
+    <resultMap id="orderLogMap" type="com.sauvignon.seckill.pojo.entities.OrderLog">
+        <id column="order_id" property="orderId" jdbcType="BIGINT" />
+        <result column="commod_id" property="commodityId" jdbcType="BIGINT" />
+        <result column="count" property="count" jdbcType="INTEGER" />
+        <result column="user_id" property="userId" jdbcType="BIGINT" />
+        <result column="record_time" property="recordTime" jdbcType="DATE" />
+    </resultMap>
+
+    <sql id="allColumns">
+        order_id, commod_id, count, user_id, record_time
+    </sql>
+
+    <insert id="insertOne" parameterType="com.sauvignon.seckill.pojo.entities.OrderLog">
+        INSERT INTO sk_order_log
+        ( <include refid="allColumns" /> )
+        VALUES
+        ( #{orderId},#{commodityId},#{count},#{userId},now() )
+    </insert>
+
+</mapper>

@@ -41,7 +41,7 @@ public class TestProcess
     public ResponseResult begin() throws InterruptedException
     {
         //随机userId
-        int id=new Random().nextInt(10000);
+        int id=new Random().nextInt(100000);
         System.out.println(id);
         Long userId=new Integer(id).longValue();
 //        HttpHeaders header=new HttpHeaders();
@@ -74,15 +74,15 @@ public class TestProcess
         if(paymentUrl==null)
             return new ResponseResult(404,"id repeat",null);
 
-        TimeUnit.MILLISECONDS.sleep(2000);
+        TimeUnit.MILLISECONDS.sleep(1500);
 
         //3. 支付
         responseResult=restTemplate.getForObject(paymentUrl,ResponseResult.class);
         Long orderId = (Long) responseResult.getBody();
         if(orderId==null)
-            return new ResponseResult(404,"订单关闭或需重新支付",null);
+            return new ResponseResult(404,"订单超时或需重新支付",null);
 
-        TimeUnit.MILLISECONDS.sleep(2000);
+        TimeUnit.MILLISECONDS.sleep(1500);
 
         //4. 支付回调
         Map<String, Object> parameters = new HashMap<String, Object>();
