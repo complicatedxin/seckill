@@ -9,11 +9,21 @@ import java.util.concurrent.*;
 public class PoolConfig
 {
     @Bean
-    public ThreadPoolExecutor threadPool()
+    public ThreadPoolExecutor dealExecutor()
     {
-        return new ThreadPoolExecutor(2,4,
+        return new ThreadPoolExecutor(1,3,
                 60, TimeUnit.SECONDS,
-                new ArrayBlockingQueue<>(100),
+                new LinkedBlockingDeque<>(200),
+                Executors.defaultThreadFactory(),
+                new ThreadPoolExecutor.AbortPolicy());
+    }
+
+    @Bean
+    public ThreadPoolExecutor dealAccExecutor()
+    {
+        return new ThreadPoolExecutor(1,1,
+                0, TimeUnit.MILLISECONDS,
+                new LinkedBlockingDeque<>(300000),
                 Executors.defaultThreadFactory(),
                 new ThreadPoolExecutor.AbortPolicy());
     }

@@ -61,7 +61,7 @@ public class TestProcess
         if(orderUrl==null)
         {
             System.out.println("活动结束！");
-            return new ResponseResult(404,"活动结束",null);
+            return new ResponseResult(200,"活动结束",null);
         }
         orderUrl+="?activityId=test";
 
@@ -82,7 +82,7 @@ public class TestProcess
         if(orderId==null)
             return new ResponseResult(404,"订单超时或需重新支付",null);
 
-        TimeUnit.MILLISECONDS.sleep(1500);
+        TimeUnit.MILLISECONDS.sleep(1000);
 
         //4. 支付回调
         Map<String, Object> parameters = new HashMap<String, Object>();
