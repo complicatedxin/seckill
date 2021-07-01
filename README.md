@@ -39,6 +39,8 @@
 
 ### 测试
 
+填充库存缓存：entrance-service9000 controller.TestProcess stuff()（秒杀时优先判断此值，替代数据库的consumed字段）
+
 > 分步请求（废除：为了压测一些不必要的操作已忽略）
 
 pre：本项目使用了jwt，需要请求时在header里添加Authorization=[token]（自己拿工具生成） 
