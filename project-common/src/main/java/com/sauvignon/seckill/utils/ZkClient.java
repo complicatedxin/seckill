@@ -8,7 +8,7 @@ import org.apache.curator.retry.ExponentialBackoffRetry;
 
 public class ZkClient
 {
-    private static String zkUrl="39.102.87.156:2181,39.102.87.156:2182,39.102.87.156:2183";
+    private static String zkUrl="xxx:xxx,xxx:xxx,xxx:xxx";
 
     public static CuratorFramework getClient()
     {

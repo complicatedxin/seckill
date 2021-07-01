@@ -2,7 +2,7 @@ package com.sauvignon.seckill.constants;
 
 public class Constants
 {
-    public static final String signature="!sau#c^1@_Z/z~+(p=skl";
+    public static final String signature="";
     private static final String SECKILL_OPEN_TIME_="seckill_open_time:";
     private static final String PLACE_ORDER_PATH_ ="http://localhost:9000/seckill/order/host/";
     private static final String SECKILL_ORDER_FLAG__ ="seckill_order_flag:%s:%s";

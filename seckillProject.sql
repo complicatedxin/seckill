@@ -16,6 +16,13 @@ create table sk_order(
                 19创建失败，8订单结束，
                 9等待退款，10已退款...;'
 );
+create table sk_order_log(
+	order_id BIGINT(11) NOT NULL PRIMARY KEY,
+    commod_id bigint(11) NOT null,
+    count INT(11) not NULL COMMENT '购买商品数量',
+    user_id BIGINT(11) NOT NULL COMMENT '用户id',
+    record_time datetime NOT NULL COMMENT '记录时间'
+);
 create table sk_commodity(
 	commod_id BIGINT(11) NOT NULL AUTO_INCREMENT PRIMARY KEY,
     total INT(11) DEFAULT NULL COMMENT '总量',
